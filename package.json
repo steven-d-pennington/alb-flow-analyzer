@@ -16,10 +16,20 @@
     "test:frontend": "cd frontend && npm test",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
-  "keywords": ["aws", "alb", "load-testing", "log-analysis"],
+  "keywords": [
+    "aws",
+    "alb",
+    "load-testing",
+    "log-analysis"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "sqlite3": "^5.1.7",
+    "xmldom": "^0.6.0"
   }
 }

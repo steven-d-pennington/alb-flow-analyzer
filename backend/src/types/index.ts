@@ -25,10 +25,17 @@ export interface ProcessingError {
   timestamp: Date;
 }
 
-// Placeholder interfaces - will be implemented in subsequent tasks
-export interface ParsedLogEntry {
-  // Will be defined when implementing log parsing
-}
+// Import ParsedLogEntry from parser module
+export { ParsedLogEntry } from '../parser/types';
+
+// Import S3 types
+export { 
+  S3Object, 
+  S3Bucket, 
+  S3SearchCriteria, 
+  S3ObjectMetadata, 
+  S3IntegrationService 
+} from '../s3/types';
 
 export interface AnalysisResult {
   // Will be defined when implementing analysis engine
