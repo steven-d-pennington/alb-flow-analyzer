@@ -3,13 +3,37 @@
  */
 
 import * as path from 'path';
-import { DatabaseConfig } from '../database/types';
+import { DatabaseConfig, DatabaseType } from '../database/types';
 
 /**
  * Get the database configuration with the correct path
  */
 export function getDatabaseConfig(): DatabaseConfig {
-  // Determine the correct database path based on current working directory
+  const dbType = (process.env.DATABASE_TYPE || 'sqlite') as DatabaseType;
+  
+  if (dbType === 'postgresql') {
+    if (process.env.DATABASE_URL) {
+      // Use connection string if provided
+      return {
+        type: 'postgresql',
+        connectionString: process.env.DATABASE_URL,
+        maxConnections: parseInt(process.env.MAX_CONNECTIONS || '20')
+      };
+    } else {
+      // Use individual connection parameters
+      return {
+        type: 'postgresql',
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME || 'alb_logs',
+        username: process.env.DB_USER || 'alb_user',
+        password: process.env.DB_PASSWORD || 'alb_password',
+        maxConnections: parseInt(process.env.MAX_CONNECTIONS || '20')
+      };
+    }
+  }
+  
+  // SQLite configuration (fallback)
   let databasePath: string;
   
   if (process.cwd().endsWith('backend')) {

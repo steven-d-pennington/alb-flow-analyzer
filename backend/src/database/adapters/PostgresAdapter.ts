@@ -25,7 +25,8 @@ export class PostgresConnection implements DatabaseConnection {
 
   async query<T = any>(sql: string, params: any[] = []): Promise<QueryResult<T>> {
     try {
-      const result = await this.client.query(sql, params);
+      const pgSql = this.convertSqliteToPostgres(sql);
+      const result = await this.client.query(pgSql, params);
       
       const fields: FieldInfo[] = result.fields?.map(field => ({
         name: field.name,
@@ -45,7 +46,8 @@ export class PostgresConnection implements DatabaseConnection {
 
   async execute(sql: string, params: any[] = []): Promise<ExecuteResult> {
     try {
-      const result = await this.client.query(sql, params);
+      const pgSql = this.convertSqliteToPostgres(sql);
+      const result = await this.client.query(pgSql, params);
       return {
         affectedRows: result.rowCount || 0,
         insertId: result.rows[0]?.id // PostgreSQL doesn't have auto-increment IDs like MySQL
@@ -92,6 +94,19 @@ export class PostgresConnection implements DatabaseConnection {
     // PoolClient doesn't have an 'ended' property like regular Client
     // We'll assume it's connected if the client exists
     return this.client !== null && this.client !== undefined;
+  }
+
+  private convertSqliteToPostgres(sql: string): string {
+    // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+    let pgSql = sql;
+    let paramIndex = 1;
+    
+    while (pgSql.includes('?')) {
+      pgSql = pgSql.replace('?', `$${paramIndex}`);
+      paramIndex++;
+    }
+    
+    return pgSql;
   }
 
   private mapPostgresType(dataTypeID: number): string {

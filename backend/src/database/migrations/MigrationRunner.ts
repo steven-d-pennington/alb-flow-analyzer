@@ -37,16 +37,37 @@ export class MigrationRunner implements IMigrationRunner {
    * Create the migrations tracking table
    */
   async createMigrationsTable(): Promise<void> {
+    // Use database-specific SQL for timestamp type
+    const timestampType = this.getTimestampType();
+    const defaultTimestamp = this.getDefaultTimestamp();
+    
     const sql = `
       CREATE TABLE IF NOT EXISTS ${this.config.tableName} (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        executed_at ${timestampType} NOT NULL DEFAULT ${defaultTimestamp},
         checksum TEXT NOT NULL
       )
     `;
     
     await this.connection.execute(sql);
+  }
+
+  /**
+   * Get the appropriate timestamp type for the database
+   */
+  private getTimestampType(): string {
+    // For PostgreSQL, we need to determine the database type from connection
+    // For now, assume PostgreSQL if we're using this optimized path
+    return 'TIMESTAMP';
+  }
+
+  /**
+   * Get the appropriate default timestamp for the database
+   */
+  private getDefaultTimestamp(): string {
+    // For PostgreSQL
+    return 'NOW()';
   }
 
   /**

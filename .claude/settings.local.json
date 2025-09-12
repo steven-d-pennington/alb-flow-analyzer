@@ -19,7 +19,8 @@
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
       "Bash(zcat:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

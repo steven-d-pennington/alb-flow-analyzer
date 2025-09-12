@@ -17,8 +17,9 @@ import { LogParser, ParsedLogEntry, LogFields, ParseResult, ParseError } from '.
  * "classification" "classification_reason" connection_id
  */
 export class ALBLogParser implements LogParser {
-  private static readonly FIELD_COUNT_V2 = 32; // Latest ALB log format (with connection_id)
-  private static readonly FIELD_COUNT_V1 = 30; // Older ALB log format (without connection_id and other newer fields)
+  private static readonly FIELD_COUNT_V3 = 32; // Latest ALB log format (with additional fields)
+  private static readonly FIELD_COUNT_V2 = 30; // Current ALB log format (with connection_id)
+  private static readonly FIELD_COUNT_V1 = 28; // Legacy ALB log format (without connection_id)
   
   /**
    * Parse a single ALB flow log entry
@@ -84,22 +85,20 @@ export class ALBLogParser implements LogParser {
       fields.push(current);
     }
 
-    // DEBUG: Log field count and sample for malformed entries
+    // Determine format version
     const isV1Format = fields.length === ALBLogParser.FIELD_COUNT_V1;
-    const isV2Format = fields.length >= ALBLogParser.FIELD_COUNT_V2;
+    const isV2Format = fields.length === ALBLogParser.FIELD_COUNT_V2;
+    const isV3Format = fields.length >= ALBLogParser.FIELD_COUNT_V3;
     
-    if (!isV1Format && !isV2Format) {
-      console.log(`🔍 DEBUG: Unexpected field count - Expected ${ALBLogParser.FIELD_COUNT_V1} (v1) or ${ALBLogParser.FIELD_COUNT_V2}+ (v2), got ${fields.length}`);
-      console.log(`🔍 DEBUG: First few fields: ${fields.slice(0, 5).join(' | ')}`);
-      console.log(`🔍 DEBUG: Log line (first 200 chars): ${logLine.substring(0, 200)}`);
-    } else {
-      console.log(`✅ DEBUG: Detected ALB log format ${isV1Format ? 'v1' : 'v2'} (${fields.length} fields)`);
+    // Only log unexpected formats (not every successful parse)
+    if (!isV1Format && !isV2Format && !isV3Format) {
+      console.warn(`Unexpected field count - Expected ${ALBLogParser.FIELD_COUNT_V1} (v1), ${ALBLogParser.FIELD_COUNT_V2} (v2), or ${ALBLogParser.FIELD_COUNT_V3}+ (v3), got ${fields.length}`);
     }
 
     // Map fields to named properties
     const fieldMap: LogFields = {};
     
-    if (isV1Format || isV2Format) {
+    if (isV1Format || isV2Format || isV3Format) {
       fieldMap.type = fields[0];
       fieldMap.timestamp = this.parseTimestamp(fields[1]);
       fieldMap.elb = fields[2];
@@ -125,20 +124,31 @@ export class ALBLogParser implements LogParser {
       fieldMap.actionsExecuted = this.cleanQuotedString(fields[22]);
       fieldMap.redirectUrl = this.cleanQuotedString(fields[23]);
       fieldMap.errorReason = this.cleanQuotedString(fields[24]);
-      fieldMap.targetPortList = this.cleanQuotedString(fields[25]);
-      fieldMap.targetStatusCodeList = this.cleanQuotedString(fields[26]);
-      fieldMap.classification = this.cleanQuotedString(fields[27]);
-      fieldMap.classificationReason = this.cleanQuotedString(fields[28]);
       
-      // Additional fields - these appear in newer ALB log formats
-      if (isV2Format) {
-        // V2 format (32+ fields) - includes newer fields
+      // Handle different format versions
+      if (isV1Format) {
+        // V1 format (28 fields) - legacy format without newer fields
+        fieldMap.targetPortList = '';
+        fieldMap.targetStatusCodeList = '';
+        fieldMap.classification = '';
+        fieldMap.classificationReason = '';
+        fieldMap.connectionId = '';
+      } else if (isV2Format) {
+        // V2 format (30 fields) - current format with connection_id
+        fieldMap.targetPortList = this.cleanQuotedString(fields[25]);
+        fieldMap.targetStatusCodeList = this.cleanQuotedString(fields[26]);
+        fieldMap.classification = this.cleanQuotedString(fields[27]);
+        fieldMap.classificationReason = this.cleanQuotedString(fields[28]);
+        fieldMap.connectionId = this.cleanQuotedString(fields[29]); // TID_xxx connection identifier
+      } else if (isV3Format) {
+        // V3 format (32+ fields) - newest format with additional fields
+        fieldMap.targetPortList = this.cleanQuotedString(fields[25]);
+        fieldMap.targetStatusCodeList = this.cleanQuotedString(fields[26]);
+        fieldMap.classification = this.cleanQuotedString(fields[27]);
+        fieldMap.classificationReason = this.cleanQuotedString(fields[28]);
         fieldMap.newField1 = this.cleanQuotedString(fields[29]); // unknown field
         fieldMap.newField2 = this.cleanQuotedString(fields[30]); // unknown field  
         fieldMap.connectionId = this.cleanQuotedString(fields[31]); // TID_xxx connection identifier
-      } else if (isV1Format) {
-        // V1 format (30 fields) - missing newer fields, set defaults
-        fieldMap.connectionId = ''; // Not available in v1 format
       }
     } else {
       // Handle unsupported format - return empty field map
@@ -152,40 +162,25 @@ export class ALBLogParser implements LogParser {
    * Validate that a parsed entry contains required fields and valid data
    */
   validateParsedEntry(entry: ParsedLogEntry): boolean {
-    // Check required fields
+    // Check required fields - only log validation failures in debug mode
     if (!entry.timestamp || isNaN(entry.timestamp.getTime())) {
-      console.log('🔍 DEBUG: Validation failed - invalid timestamp:', entry.timestamp);
       return false;
     }
     
-    // Client IP can be empty for some error cases, but target IP should be present for successful requests
-    // Allow empty target IP for error cases (like 502 errors)
-    
     if (typeof entry.elbStatusCode !== 'number' || entry.elbStatusCode < 100 || entry.elbStatusCode > 599) {
-      console.log('🔍 DEBUG: Validation failed - invalid elbStatusCode:', entry.elbStatusCode);
       return false;
     }
     
     // Target status code can be 0 for cases where target is not reached
     if (typeof entry.targetStatusCode !== 'number' || entry.targetStatusCode < 0) {
-      console.log('🔍 DEBUG: Validation failed - invalid targetStatusCode:', entry.targetStatusCode);
       return false;
     }
     
     if (!entry.requestVerb || !entry.requestUrl || !entry.requestProtocol) {
-      console.log('🔍 DEBUG: Validation failed - missing request fields:', {
-        requestVerb: entry.requestVerb,
-        requestUrl: entry.requestUrl,
-        requestProtocol: entry.requestProtocol
-      });
       return false;
     }
     
     if (!entry.targetGroupArn || !entry.traceId) {
-      console.log('🔍 DEBUG: Validation failed - missing required fields:', {
-        targetGroupArn: entry.targetGroupArn ? 'present' : 'missing',
-        traceId: entry.traceId ? 'present' : 'missing'
-      });
       return false;
     }
 
