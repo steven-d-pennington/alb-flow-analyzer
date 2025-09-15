@@ -16,6 +16,7 @@ import exportRoutes from './routes/export';
 import downloadsRoutes, { setWebSocketServer as setDownloadsWebSocketServer } from './routes/downloads';
 import processingRoutes, { setWebSocketServer as setProcessingWebSocketServer } from './routes/processing';
 import databaseRoutes from './routes/database';
+import metricsRoutes from './routes/metrics';
 // import workflowRoutes from './routes/workflow'; // Temporarily disabled
 // import cachedWorkflowRoutes from './routes/cachedWorkflow'; // Temporarily disabled due to type errors
 import { ALBWebSocketServer } from './websocket/WebSocketServer';
@@ -165,6 +166,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/downloads', downloadsRoutes);
 app.use('/api/processing', processingRoutes);
 app.use('/api/database', databaseRoutes);
+app.use('/api/metrics', metricsRoutes);
 // app.use('/api/workflow', workflowRoutes); // Temporarily disabled
 // app.use('/api/workflow/cached', cachedWorkflowRoutes); // Cached workflow routes (temporarily disabled)
 
@@ -218,10 +220,10 @@ app.delete('/api/cache/clear', async (req, res) => {
 });
 */
 
-// API routes placeholder for other endpoints
-app.use('/api', (req, res) => {
-  res.json({ message: 'ALB Flow Analyzer API - Additional routes will be implemented in subsequent tasks' });
-});
+// API routes placeholder for other endpoints (commented out to allow specific routes to work)
+// app.use('/api', (req, res) => {
+//   res.json({ message: 'ALB Flow Analyzer API - Additional routes will be implemented in subsequent tasks' });
+// });
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

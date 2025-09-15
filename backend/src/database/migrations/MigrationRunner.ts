@@ -73,14 +73,14 @@ export class MigrationRunner implements IMigrationRunner {
   /**
    * Run all pending migrations
    */
-  async runMigrations(): Promise<void> {
+  async runMigrations(): Promise<MigrationRecord[]> {
     await this.createMigrationsTable();
     
     const pendingMigrations = await this.getPendingMigrations();
     
     if (pendingMigrations.length === 0) {
       console.log('No pending migrations to run');
-      return;
+      return await this.getExecutedMigrations();
     }
 
     console.log(`Running ${pendingMigrations.length} pending migrations...`);
@@ -90,6 +90,9 @@ export class MigrationRunner implements IMigrationRunner {
     }
 
     console.log('All migrations completed successfully');
+    
+    // Return all executed migrations
+    return await this.getExecutedMigrations();
   }
 
   /**

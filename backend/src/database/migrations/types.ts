@@ -17,7 +17,7 @@ export interface MigrationRecord {
 }
 
 export interface MigrationRunner {
-  runMigrations(): Promise<void>;
+  runMigrations(): Promise<MigrationRecord[]>;
   rollbackMigration(migrationId: string): Promise<void>;
   getPendingMigrations(): Promise<Migration[]>;
   getExecutedMigrations(): Promise<MigrationRecord[]>;
